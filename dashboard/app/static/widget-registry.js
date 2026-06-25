@@ -3214,6 +3214,8 @@
         // card's inline style (for grid placement) and would wipe an inline accent.
         card.classList.add("db-panel-custom-color");
         card.dataset.severity = effective ? (["low", "medium", "high", "critical"].includes(effective.priority) ? effective.priority : "medium") : "none";
+        // Tag with the ticket id so the corner stacks can hide a ticket that's on the grid.
+        card.dataset.ticketId = effective ? (effective.id || "") : "";
       }
       return null;
     },

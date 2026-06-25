@@ -240,8 +240,9 @@
     const key = `ticket-pin-${t.id}`;
     const sel = (window.CSS && CSS.escape) ? CSS.escape(key) : key;
     let card = layout.querySelector(`[data-widget-key="${sel}"]`);
+    let cell = null;
     if (!card) {
-      const cell = nextCell(layout);
+      cell = nextCell(layout);
       card = document.createElement("div");
       card.className = "widget-card ticket-widget-card";
       card.dataset.widgetKey = key;
@@ -256,30 +257,34 @@
       layout.appendChild(card);
       layout.__initWidget(card);
     }
+    // Feed its data FIRST, then register the 3-row span so the re-render re-resolves the
+    // ticket (full-size immediately, no 1-row spawn, no blank).
+    window.dashboardWidgetDataRuntime?.ingest?.({ widgets: { [key]: { rows: [t] } } });
+    if (cell) window.ticketDashboardPlacement?.size?.(card, cell.col, cell.row);
     window.dashboardWidgetDataRuntime?.ingest?.({ widgets: { [key]: { rows: [t] } } });
     return card;
   };
 
-  // Drop onto the dashboard → add a new grid widget for it, and fly a clone into the new
-  // cell for a seamless hand-off.
+  // Drop onto the dashboard → add a new grid widget for it, remove it from its stack (one
+  // canonical ticket), and fly a clone into the new cell for a seamless hand-off.
   const flyIntoGrid = (card, t) => {
+    // Clone the source card NOW — re-render below drops it from the stack.
+    const cr = card.getBoundingClientRect();
+    const clone = card.cloneNode(true);
+    clone.className = "tk-card tk-flying";
+    clone.style.cssText = `position:fixed; left:${cr.left}px; top:${cr.top}px; width:${cr.width}px; height:${cr.height}px; margin:0; z-index:9999;`;
+    document.body.appendChild(clone);
     const placed = addTicketToGrid(t);
-    if (!placed) return;
+    render();   // the ticket now has a grid widget → it leaves its stack
     requestAnimationFrame(() => {
-      const gr = placed.getBoundingClientRect();
-      if (!gr.width) return;
-      const cr = card.getBoundingClientRect();
-      const clone = card.cloneNode(true);
-      clone.className = "tk-card tk-flying";
-      clone.style.cssText = `position:fixed; left:${cr.left}px; top:${cr.top}px; width:${cr.width}px; height:${cr.height}px; margin:0; z-index:9999;`;
-      document.body.appendChild(clone);
-      requestAnimationFrame(() => {
+      const gr = placed && placed.getBoundingClientRect();
+      if (gr && gr.width) {
         clone.style.transformOrigin = "top left";
         clone.style.transform = `translate(${gr.left - cr.left}px, ${gr.top - cr.top}px) scale(${gr.width / cr.width}, ${gr.height / cr.height})`;
-        clone.style.opacity = "0";
-      });
-      setTimeout(() => clone.remove(), 440);
+      }
+      clone.style.opacity = "0";
     });
+    setTimeout(() => clone.remove(), 440);
   };
 
   const wireCard = (card, t) => {
@@ -339,12 +344,28 @@
     layout(side);
   };
 
+  // Ticket ids that already live on the dashboard grid — excluded from the stacks (one
+  // canonical ticket). Dragged widgets carry the id in their key (ticket-pin-<id>, set
+  // synchronously on drop); every ticket widget also carries data-ticket-id once rendered.
+  const onGridIds = () => {
+    const ids = new Set();
+    document.querySelectorAll('.dashboard-layout-grid .widget-card[data-widget-key^="ticket-pin-"]').forEach((w) => {
+      const k = w.dataset.widgetKey || ""; if (k.length > 11) ids.add(k.slice(11));
+    });
+    document.querySelectorAll('.dashboard-layout-grid .widget-card[data-widget-runtime-type="ticket"]').forEach((w) => {
+      if (w.dataset.ticketId) ids.add(w.dataset.ticketId);
+    });
+    return ids;
+  };
+
   const render = () => {
     ensureRoot();
     matchCardSize(); sizeRoot();
+    const onGrid = onGridIds();
     const order = (a, b) => (Date.parse(b.createdAt || 0) || 0) - (Date.parse(a.createdAt || 0) || 0);
-    buildDeck("left", tickets.filter((t) => (t.state || "open") !== "resolved").sort(order));
-    buildDeck("right", tickets.filter((t) => (t.state || "open") === "resolved").sort(order));
+    const avail = tickets.filter((t) => !onGrid.has(t.id));
+    buildDeck("left", avail.filter((t) => (t.state || "open") !== "resolved").sort(order));
+    buildDeck("right", avail.filter((t) => (t.state || "open") === "resolved").sort(order));
   };
 
   const load = async () => {

@@ -2980,6 +2980,17 @@ document.addEventListener("DOMContentLoaded", () => {
         applyPanelColor(panel, "#ffffff");
       },
     };
+
+    // ticket-stacks.js builds a bare ticket widget-card and calls this to register its
+    // 3-row span/position with the runtime, so it renders full-size immediately instead of
+    // staying at 1 row until the user drags it. Called AFTER the ticket data is ingested,
+    // so the position re-render re-resolves the data (no blank).
+    window.ticketDashboardPlacement = {
+      size(widget, col, row) {
+        try { widgetRuntimeController.applyGridPosition(widget, col, row, 3); }
+        catch (err) { console.warn("[ticket-grid] size failed", err); }
+      },
+    };
   }
 
   initializeHistoryResetRuntime({
