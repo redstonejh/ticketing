@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld('tickets', {
   resolve: (id) => ipcRenderer.invoke('tickets:resolve', { id }),
   reopen: (id) => ipcRenderer.invoke('tickets:reopen', { id }),
   comment: (id, text) => ipcRenderer.invoke('tickets:comment', { id, text }),
+  update: (id, fields) => ipcRenderer.invoke('tickets:update', { id, fields }),
   create: (payload) => ipcRenderer.invoke('tickets:create', payload),
   remove: (id) => ipcRenderer.invoke('tickets:delete', { id }),
 });

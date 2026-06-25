@@ -133,19 +133,18 @@ There are two canonical buttons. Pick by surface.
 }
 ```
 
-### Solid pill button — forms / primary actions
-`button, .primary-link` (base.css):
-```css
-button {
-  min-height: 46px; padding: 0 22px; border: 0; border-radius: 999px;
-  background: var(--blue); color: #fff;
-  box-shadow: 0 10px 22px rgba(37,99,235,.20);
-  transition: background .18s, box-shadow .18s, transform .18s;
-}
-button:hover  { background: var(--blue-hover); box-shadow: 0 12px 28px rgba(37,99,235,.24); }
-button:active { transform: translateY(1px); }
-```
-Ghost/secondary variant: `.ghost-button` / `button.secondary` → `border:1px solid var(--line); background:#fff; color:var(--ink-strong); box-shadow:none`.
+### ⛔ There is NO blue / oval / glowing button — anywhere
+The old global blue-pill `button {}` style (999px radius + `var(--blue)` background +
+`0 10px 22px rgba(37,99,235,.20)` glow) is **DELETED** from `base.css`. A bare
+`<button>` now carries **no chrome** — it inherits text + a pointer, nothing else.
+Never reintroduce a default button background, border, radius, or box-shadow.
+
+**Actions inside a menu/panel are menu items**, not buttons — copy `.auth-menu-item`
+(see §6): flat, full-width, `border:0`, transparent background, `border-radius:8px`,
+**colour-only hover** (`rgba(255,255,255,.62)` → `#fff`). No fill, no border, no blue.
+
+The only "button" with chrome is the **circular glass control** above
+(`.window-glass-control`) — and that reads as glass via shadows, not a fill.
 
 > Hover model (dashboard chrome): hover is **colour/shadow only**, never a size change; the lift is the CSS `translate` (not `transform`) property and is frozen during drag/resize via `body.panel-interaction-active`.
 

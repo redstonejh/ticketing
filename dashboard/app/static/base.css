@@ -71,56 +71,28 @@ p {
 
 
 
+/* DELETED: the global blue-pill button style (oval 999px radius + var(--blue)
+   background + blue glow box-shadow). Per the design rule, there is NEVER a blue,
+   oval, or glowing button anywhere in the program. A bare <button> now carries NO
+   chrome — it just inherits text + a pointer. Anything that needs a styled button
+   defines its OWN class (menu items .auth-menu-item / .td-act, window controls
+   .window-glass-control, the auth gate). Do NOT reintroduce default button chrome. */
 button,
 .primary-link,
 .button-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 46px;
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
   border: 0;
-  border-radius: 999px;
-  padding: 0 22px;
-  background: var(--blue);
-  color: #fff;
+  background: transparent;
+  color: inherit;
   font: inherit;
   cursor: pointer;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, .20);
-  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
-}
-
-button:hover,
-.primary-link:hover,
-.button-link:hover {
-  background: var(--blue-hover);
-  box-shadow: 0 12px 28px rgba(37, 99, 235, .24);
-}
-
-button:active,
-.primary-link:active,
-.button-link:active {
-  transform: translateY(1px);
 }
 
 button:disabled {
-  cursor: wait;
+  cursor: default;
   opacity: .66;
-}
-
-.ghost-button,
-button.secondary,
-.secondary-link {
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--ink-strong);
-  box-shadow: none;
-}
-
-.ghost-button:hover,
-button.secondary:hover,
-.secondary-link:hover {
-  background: var(--surface-soft);
-  box-shadow: none;
 }
 
 

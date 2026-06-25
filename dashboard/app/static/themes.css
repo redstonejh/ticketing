@@ -3870,8 +3870,14 @@ body.workspace-page-swipe-dragging{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  box-sizing: border-box;
+  /* Self-sufficient sizing: the global blue-pill button style (which used to give
+     these min-height/padding) was DELETED, so define everything here. 46px matches
+     the background-picker button — the whole glass-control row stays consistent. */
+  width: 46px;
+  height: 46px;
+  min-height: 0;
+  padding: 0;
   border: 1px solid color-mix(in srgb, var(--glass-border) 72%, transparent);
   border-radius: 50%;
   background: transparent;

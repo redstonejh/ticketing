@@ -23,7 +23,7 @@ import {
   initTickets, connectTickets, endTickets,
   ticketList, ticketConnectionState,
   claimTicket, unclaimTicket, assignTicket, resolveTicket, reopenTicket,
-  commentTicket, createTicket, deleteTicket,
+  commentTicket, updateTicket, createTicket, deleteTicket,
 } from './tickets.js';
 
 // Handle Squirrel.Windows install/update/uninstall events — must quit immediately.
@@ -312,6 +312,10 @@ ipcMain.handle('tickets:reopen', (_e, { id } = {}) => {
 ipcMain.handle('tickets:comment', (_e, { id, text } = {}) => {
   const g = requireUser(); if (g.error) return g.error;
   return commentTicket(id, text, g.who);
+});
+ipcMain.handle('tickets:update', (_e, { id, fields } = {}) => {
+  const g = requireUser(); if (g.error) return g.error;
+  return updateTicket(id, fields || {}, g.who);
 });
 ipcMain.handle('tickets:create', (_e, payload = {}) => {
   const g = requireUser(); if (g.error) return g.error;

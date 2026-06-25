@@ -3089,6 +3089,137 @@
     },
   });
 
+  // ─── Ticket widget (ticketing app) ──────────────────────────────────────────
+  // A material dashboard widget that renders ONE ticket. Data is fed via the
+  // widget runtime by ticket-feed.js (keyed "ticket-card"), which reads
+  // window.tickets — the tickets/# MQTT backend. Styled on the design system:
+  // the glass content well, white text, and the shared status palette
+  // (#e1857c red / #d4ab63 amber / #6fc99a green) used by the HP bars and donut.
+  const ensureTicketStyles = () => {
+    if (typeof document === "undefined" || document.getElementById("ticket-widget-styles")) return;
+    const style = document.createElement("style");
+    style.id = "ticket-widget-styles";
+    style.textContent = `
+      /* The ticket widget IS the card. The grid item (.widget-card) itself is
+         styled as the single portrait glass card — there is NO inner card and NO
+         separate shell to hide. Content lays out directly inside it. */
+      .widget-card.ticket-widget-card, .widget-card[data-widget-runtime-type="ticket"] {
+        display: flex !important; flex-direction: column; cursor: pointer;
+        padding: 14px 15px !important; border-radius: 15px !important; color: #fff;
+        /* Background is NOT hardcoded — it comes from the widget's built-in
+           db-panel-custom-color theme (accent tint by priority), set in
+           mountBodyRenderer. That's how the card takes the severity colour. */
+        -webkit-backdrop-filter: blur(30px) saturate(140%) !important;
+        backdrop-filter: blur(30px) saturate(140%) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 8px 22px rgba(0,0,0,0.18) !important;
+        overflow: hidden; transition: box-shadow .15s ease;
+      }
+      /* Hover = the reference stat-widget brighten (12% wash + brighter top edge), but
+         WITHOUT the rise: the drop shadow stays at its resting size (0 8px 22px .18) so
+         the card does NOT lift/pop. Brighten only, no movement. */
+      body:not(.panel-interaction-active):not(.panel-resize-active) .widget-card[data-widget-runtime-type="ticket"]:not(.td-card):hover {
+        box-shadow: inset 0 0 0 9999px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.34), 0 8px 22px rgba(0,0,0,0.18) !important;
+      }
+      /* Borderless at rest AND hover (high specificity, both states) — the themed card
+         has no border, like the stat cards. A border-width flip is exactly what caused
+         the hover "movement"; forcing 0 at both states makes a shift impossible. */
+      body:not(.panel-interaction-active):not(.panel-resize-active) .widget-card[data-widget-runtime-type="ticket"],
+      body:not(.panel-interaction-active):not(.panel-resize-active) .widget-card[data-widget-runtime-type="ticket"]:hover {
+        border: 0 !important;
+      }
+      /* Severity → accent colour (drives the db-panel-custom-color fill). !important
+         so it beats the runtime's inline --panel-accent-rgb. cyan/yellow/orange/red. */
+      .widget-card[data-widget-runtime-type="ticket"][data-severity="low"]      { --panel-accent-rgb: 34, 211, 238 !important;  --panel-accent: rgb(34,211,238) !important; }
+      .widget-card[data-widget-runtime-type="ticket"][data-severity="medium"]   { --panel-accent-rgb: 250, 204, 21 !important;  --panel-accent: rgb(250,204,21) !important; }
+      .widget-card[data-widget-runtime-type="ticket"][data-severity="high"]     { --panel-accent-rgb: 249, 115, 22 !important;  --panel-accent: rgb(249,115,22) !important; }
+      .widget-card[data-widget-runtime-type="ticket"][data-severity="critical"] { --panel-accent-rgb: 239, 68, 68 !important;   --panel-accent: rgb(239,68,68) !important; }
+      .widget-card[data-widget-runtime-type="ticket"][data-severity="none"]     { --panel-accent-rgb: 120, 130, 140 !important; --panel-accent: rgb(120,130,140) !important; }
+      .ticket-body { display: flex; flex-direction: column; gap: 4px; height: 100%; }
+      .ticket-company { font-size: 0.98rem; font-weight: 700; line-height: 1.25;
+        display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+      .ticket-host { font-size: 0.74rem; color: rgba(255,255,255,0.6); font-variant-numeric: tabular-nums; }
+      .ticket-down { margin-top: auto; font-size: 0.82rem; font-weight: 600; color: rgba(255,255,255,0.82); }
+      .ticket-empty { color: rgba(255,255,255,0.55); font-size: 0.8rem; line-height: 1.45; padding: 4px; }
+    `;
+    document.head.appendChild(style);
+  };
+
+  const humanizeTicketDuration = (ms) => {
+    if (!Number.isFinite(ms) || ms < 0) return "—";
+    const s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60), d = Math.floor(h / 24);
+    if (d) return `${d}d ${h % 24}h`;
+    if (h) return `${h}h ${m % 60}m`;
+    if (m) return `${m}m`;
+    return `${s}s`;
+  };
+
+  // Last ticket shown per widget instance. The runtime re-runs mountBodyRenderer on
+  // every refresh; if a refresh momentarily carries no rows (a data race) we must NOT
+  // wipe a populated card back to empty. Cache the last good ticket and keep showing it.
+  const lastTicketByInstance = new Map();
+
+  const renderTicketInto = (mount, t) => {
+    if (!t) {
+      // NEVER flash a grey "no ticket" card while data is still loading or during a
+      // transient empty refresh. Show the empty message ONLY once the feed has
+      // CONFIRMED there are genuinely zero tickets; until then render nothing.
+      mount.innerHTML = window.__ticketsKnownEmpty
+        ? `<div class="ticket-empty">No tickets yet.<br>The monitor opens one automatically on a sustained outage.</div>`
+        : "";
+      return;
+    }
+    const created = t.createdAt ? new Date(t.createdAt) : null;
+    const endMs = t.recoveredAt ? Date.parse(t.recoveredAt) : Date.now();
+    const downMs = created ? endMs - created.getTime() : NaN;
+    mount.innerHTML = `
+      <div class="ticket-company">${escapeHtml(t.companyLabel || "Unknown")}</div>
+      <div class="ticket-host">${escapeHtml(t.host || "—")}</div>
+      <div class="ticket-down">Down ${escapeHtml(humanizeTicketDuration(downMs))}</div>`;
+  };
+
+  registerWidgetDefinition({
+    type: "ticket",
+    displayName: "Ticket",
+    category: "data",
+    widgetType: "ticket",
+    dashboardObjectKind: "ticket",
+    regionRole: "content",
+    htmlTag: "div",
+    className: "widget-card ticket-widget-card",
+    defaultSize: { cols: 1, rows: 3 },
+    minSize: { cols: 1, rows: 2 },
+    capabilities: { readsContext: true, supportsResize: true },
+    supportedSettings: ["color", "pin", "delete"],
+    getDefaultConfig: () => ({ title: "Ticket" }),
+    mountBodyRenderer: ({ contentRoot, instance }) => {
+      ensureTicketStyles();
+      const mount = contentRoot?.querySelector?.("[data-ticket-mount]");
+      if (!mount) return null;
+      const key = instance?.id || instance?.instanceId || "ticket-card";
+      const ticket = widgetDataRows(instance?.data)[0] || null;
+      if (ticket) lastTicketByInstance.set(key, ticket);
+      // Never downgrade a populated card to empty on a transient empty refresh — fall
+      // back to the last ticket we showed for this instance.
+      const effective = ticket || lastTicketByInstance.get(key) || null;
+      renderTicketInto(mount, effective);
+      // Left-click the card → open the ERPNext-style detail/edit form.
+      const card = mount.closest(".widget-card");
+      if (card) {
+        card.onclick = effective
+          ? (event) => { if (!wasDragGesture(event)) window.ticketDetail?.open(effective, card); }
+          : null;
+        // Colour the card by priority through the widget's own custom-color theme.
+        // The accent is set via a stylesheet rule keyed by data-severity (defined in
+        // ensureTicketStyles) — NOT inline — because the grid runtime rewrites the
+        // card's inline style (for grid placement) and would wipe an inline accent.
+        card.classList.add("db-panel-custom-color");
+        card.dataset.severity = effective ? (["low", "medium", "high", "critical"].includes(effective.priority) ? effective.priority : "medium") : "none";
+      }
+      return null;
+    },
+    render: () => `<div class="ticket-body" data-ticket-mount></div>`,
+  });
+
   registerWidgetDefinition({
     type: "chart",
     displayName: "Chart",

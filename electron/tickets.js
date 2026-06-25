@@ -204,6 +204,24 @@ export function commentTicket(id, text, actor) {
   return mutate(id, actor, 'comment', () => body);
 }
 
+// ERPNext-style document editing: set the human-editable fields on the ticket.
+// System fields (companyId/host/createdAt/recoveredAt) stay machine-owned.
+const EDITABLE_TICKET_FIELDS = ['title', 'description', 'priority', 'assignee'];
+export function updateTicket(id, fields = {}, actor) {
+  return mutate(id, actor, 'edited', (t) => {
+    const changed = [];
+    for (const k of EDITABLE_TICKET_FIELDS) {
+      if (!Object.prototype.hasOwnProperty.call(fields, k)) continue;
+      const v = fields[k] == null || fields[k] === '' ? null : String(fields[k]);
+      if ((t[k] ?? null) !== v) { t[k] = v; changed.push(k); }
+    }
+    if (!changed.length) return { error: 'No changes' };
+    // Naming an assignee on a still-open ticket advances it to "assigned".
+    if (changed.includes('assignee') && t.assignee && t.state === 'open') t.state = 'assigned';
+    return `Edited ${changed.join(', ')}`;
+  });
+}
+
 // Tombstone (delete) a ticket — clears its retained record on the broker.
 export function deleteTicket(id) {
   const key = safeId(id);

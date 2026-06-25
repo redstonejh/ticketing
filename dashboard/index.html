@@ -189,7 +189,12 @@
        empty, canonical glass workspace. The layout regions below are kept so the
        builder runtime initialises cleanly. -->
   <div class="panel-layout" data-layout-key="builder"></div>
-  <div class="widget-layout" data-widget-layout-key="builder-chart"></div>
+  <!-- First ticketing UI: ONE ticket rendered as a real dashboard widget
+       (runtime type "ticket", registered in widget-registry.js, fed by
+       ticket-feed.js from window.tickets). -->
+  <div class="widget-layout" data-widget-layout-key="builder-chart">
+    <div class="widget-card ticket-widget-card" data-widget-key="ticket-card" data-widget-type="ticket" data-widget-runtime-type="ticket" data-widget-config='{"title":"Ticket"}' data-default-span="1" data-default-grid-col="3" data-default-grid-row="1" data-grid-col="3" data-grid-row="1" data-grid-row-span="3"></div>
+  </div>
   <div class="widget-layout" data-widget-layout-key="builder-table"></div>
 </div>
 
@@ -209,6 +214,9 @@
   <div class="toast-stack" aria-live="polite" aria-atomic="true"></div>
   <script type="module" src="./app/static/app.js"></script>
   <script type="module" src="./app/static/status-feed.js"></script>
+  <script type="module" src="./app/static/ticket-feed.js"></script>
+  <script type="module" src="./app/static/ticket-detail.js"></script>
+  <script type="module" src="./app/static/ticket-stacks.js"></script>
   <script type="module" src="./app/static/auth-ui.js"></script>
 </body>
 </html>
