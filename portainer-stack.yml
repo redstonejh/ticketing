@@ -1,0 +1,30 @@
+services:
+  ticketing-web:
+    image: ticketing-web:latest
+    container_name: ticketing-web
+    restart: unless-stopped
+    environment:
+      TICKETING_WEB_PORT: "8080"
+      TICKETING_DATA_DIR: /data
+      TICKETING_ADMIN_USERNAME: ${TICKETING_ADMIN_USERNAME:-admin}
+      TICKETING_ADMIN_PASSWORD: ${TICKETING_ADMIN_PASSWORD}
+      TICKETING_COOKIE_SECURE: "0"
+    ports:
+      - "8082:8080"
+    volumes:
+      - ticketing-web-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ticketing
+
+volumes:
+  ticketing-web-data:
+
+networks:
+  ticketing:
+    name: ticketing
+
